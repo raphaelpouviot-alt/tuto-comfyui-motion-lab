@@ -1,0 +1,5 @@
+Tuto ComfyUI motion lab (Projet Simorgh / volcan, et grenouille)
+
+Ouvrir index.html dans un navigateur (Chrome, Firefox, Safari).
+Tout est dans ce dossier : images (img/), vidéos (vid/), captures des workflows (wf2/)
+et les workflows ComfyUI en JSON (json/) : glisser un .json dans ComfyUI pour le recharger.
