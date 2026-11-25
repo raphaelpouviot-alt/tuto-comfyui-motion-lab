@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tuto ComfyUI motion lab</title>
+<meta name="description" content="Tuto ComfyUI motion lab : créer visuels et assets animés pour le motion lab (volcan, grenouille).">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+/* VOICE: carnet d'atelier, clair et concret
+   IDEA: la bande dépliée du motion lab, celle qu'on projette, sert de fil conducteur
+   PICTURE: les deux labs dépliés en ouverture, puis chaque étape entrée, prompt, sortie
+   COLOUR and TYPE: salle de projection noire, lave orange pour le volcan, vert grenouille ; Archivo + Source Sans 3
+   LAYOUT: bandeaux pleine largeur par projet, étapes en colonne, médias en grille qui tombe en une colonne */
+:root{color-scheme:light dark;--bg:light-dark(#f3f1ec,#0e1014);--panel:light-dark(#ffffff,#171a20);--ink:light-dark(#17181b,#ecebe7);--mute:light-dark(#5d6068,#9a9ca3);--line:light-dark(#dedad2,#262a32);--lava:#ff5a1f;--frog:light-dark(#4f8a1c,#9ccc3c);--acc:var(--lava)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html{scroll-padding-top:72px;scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 "Source Sans 3",system-ui,sans-serif;overflow-x:clip}
+h1,h2,h3{font-family:Archivo,system-ui,sans-serif;line-height:1.08;text-wrap:balance;margin:0}
+h1{font-size:clamp(34px,5.4vw,58px);font-weight:800}
+h2{font-size:clamp(30px,4vw,46px);font-weight:800}
+h3{font-size:clamp(22px,2.4vw,28px);font-weight:700;margin-bottom:12px}
+p{max-width:72ch;margin:0 0 14px}
+ul{max-width:72ch;padding-left:20px}li{margin-bottom:6px}
+b{font-weight:600}
+.wrap{max-width:1240px;margin:0 auto;padding:0 max(4vw,16px)}
+header.hero{padding:clamp(28px,5vw,64px) 0 28px;background:#0e1014;color:#ecebe7}
+.hero .lede{font-size:19px;color:#c9cad0;max-width:64ch;margin-top:16px}
+.strips{display:grid;gap:10px;margin-top:28px}
+.strip{position:relative;border-radius:8px;overflow:hidden;background:#000}
+.strip img{display:block;width:100%;height:auto}
+.strip span{position:absolute;left:12px;bottom:10px;background:rgba(0,0,0,.66);color:#fff;font:600 14px Archivo,system-ui,sans-serif;padding:4px 10px;border-radius:4px}
+.labels{display:flex;justify-content:space-between;font:600 13px Archivo,system-ui,sans-serif;color:#9a9ca3;margin-top:6px}
+nav.toc{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+nav.toc .wrap{display:flex;gap:6px 18px;overflow-x:auto;padding-block:12px;white-space:nowrap}
+nav.toc a{color:var(--ink);text-decoration:none;font:600 15px Archivo,system-ui,sans-serif;padding:6px 2px;flex:none}
+nav.toc a:hover{color:var(--acc)}
+.band{padding:clamp(28px,4vw,56px) 0}
+.band.base{background:var(--panel);border-block:1px solid var(--line)}
+.chap{padding:clamp(28px,4vw,56px) 0 12px;color:#fff}
+.chap.volcan{background:linear-gradient(90deg,#3a0f04,#a52a08 60%,#ff5a1f)}
+.chap.grenouille{background:linear-gradient(90deg,#16260a,#3f6b16 60%,#8fbf3a)}
+.chap p{color:#f4efe9;max-width:70ch}
+#volcan{--acc:var(--lava)}#grenouille{--acc:var(--frog)}
+.step{padding:34px 0;border-bottom:1px solid var(--line)}
+.step h3{color:var(--acc)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px;margin:14px 0;align-items:start}
+figure.m{margin:14px 0;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.grid figure.m{margin:0}
+figure.m img,figure.m video{display:block;width:100%;height:auto;max-height:620px;object-fit:contain;background:#000}
+figure.tall img{max-height:520px}
+figure.wf img{max-height:none;background:#181a1f}
+figcaption{font-size:14px;color:var(--mute);padding:8px 12px}
+details.pr{position:relative;margin:12px 0;border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:6px;background:var(--panel)}
+details.pr summary{cursor:pointer;padding:10px 14px;font:600 15px Archivo,system-ui,sans-serif;min-height:44px;display:flex;align-items:center}
+details.pr pre{margin:0;padding:6px 16px 16px;white-space:pre-wrap;font:14px/1.55 "JetBrains Mono",ui-monospace,monospace;color:var(--ink)}
+.cp{position:absolute;top:6px;right:8px;font:600 13px Archivo,system-ui,sans-serif;background:var(--acc);color:#111;border:0;border-radius:4px;padding:8px 12px;min-height:34px;cursor:pointer}
+.cp:focus-visible,nav.toc a:focus-visible,summary:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+dl.meta{display:flex;flex-wrap:wrap;gap:8px 24px;margin:8px 0 4px;font-size:15px}
+dl.meta div{display:flex;gap:8px}dl.meta dt{color:var(--mute)}dl.meta dd{margin:0;font-weight:600}
+p.dl{margin:6px 0 14px}p.dl a{display:inline-block;padding:5px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel);font-size:14px;text-decoration:none;color:inherit}p.dl .dlmsg{font-size:13px;opacity:.7}p.dl a:hover{border-color:var(--acc)}
+table.ag{border-collapse:collapse;margin:12px 0 18px;max-width:100%;font-size:15px}table.ag th,table.ag td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}table.ag th{background:var(--panel)}#addguide h3{margin:22px 0 6px;font-size:19px}
+aside.tip{max-width:76ch;margin:14px 0;padding:12px 16px;border-radius:6px;background:color-mix(in srgb,var(--acc) 12%,var(--panel));border:1px solid color-mix(in srgb,var(--acc) 35%,var(--line));font-size:16px}
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px;margin-top:18px}
+.rule{padding:16px 18px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.rule h4{font:700 18px Archivo,system-ui,sans-serif;margin:0 0 6px}
+.rule p{font-size:16px;margin:0}
+table{border-collapse:collapse;width:100%;font-size:15px;margin-top:12px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 14px Archivo,system-ui,sans-serif;color:var(--mute)}
+code{font:14px "JetBrains Mono",monospace;overflow-wrap:anywhere}
+footer{padding:36px 0;color:var(--mute);font-size:15px}
+.scroll{overflow-x:auto}
+@media(max-width:600px){body{font-size:16px}table{font-size:13px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:8em}.stack td::before{content:attr(data-l);float:inline-start;width:7.5em;margin-inline-start:-8em;color:var(--mute)}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<header class="hero"><div class="wrap">
+<h1>Créer visuels et assets pour le motion lab avec ComfyUI</h1>
+<div class="strips">
+<div class="strip"><img src="img/hero_volcan.jpg" alt="Lab volcan déplié"><span>Lab volcan</span></div>
+<div class="strip"><img src="img/g_derniere_frame.jpg" alt="Lab grenouille déplié"><span>Lab grenouille</span></div>
+</div>
+<div class="labels"><span>Mur jardin</span><span>Sol</span><span>Mur cour</span></div>
+</div></header>
+<nav class="toc" aria-label="Sommaire"><div class="wrap">
+<a href="#dispositif">Le dispositif</a><a href="#addguide">Add Guide</a><a href="#volcan">Volcan</a><a href="#grenouille">Grenouille</a><a href="#fichiers">Fichiers</a>
+</div></nav>
+
+<section class="band" id="dispositif"><div class="wrap">
+<h2>Le dispositif : un lab qu'on déplie</h2>
+<p style="margin-top:14px">Un sol de 18,4 × 8 m et deux murs de 8 × 4,5 m, travaillés sur une <b>bande dépliée</b> de 6576 × 1920 px : jardin à gauche, sol au centre, cour à droite. Pour H3, on la tourne souvent à la verticale.</p>
+<figure class="m wide"><img src="img/gabarit_lab.jpg" alt="Gabarit du lab 6576 × 1920"><figcaption>Le gabarit fourni : 6576 × 1920 px, face jardin et face cour</figcaption></figure>
+<p>Le piège : le sol est vu <b>de dessus</b>, les murs <b>de face</b>. Chaque surface garde son point de vue, et on soigne les raccords aux pliures.</p>
+</div></section>
+
+<section class="band" id="addguide"><div class="wrap">
+<h2>Add Guide : où le placer, comment le brancher</h2>
+<p>Le nœud qui revient dans presque tous les exemples. <b>Add Guide for MiniMax H3</b> ancre une image (ou un court clip, ou du son) à une frame précise de la vidéo que génère H3 Reference to Video.</p><aside class="tip"><b>Guide ou référence ?</b> Une image branchée en <code>ref_image</code> donne l'identité (à quoi ressemble la scène, le personnage). Une image branchée dans un Add Guide impose ce qu'on voit <b>à une frame donnée</b>. Pour une boucle, un début ou une fin imposés, il faut un guide. On peut brancher la même image aux deux.</aside><h3>Où le trouver</h3><p>Double-clic sur le canvas, taper <code>Add Guide</code>, choisir <b>Add Guide for MiniMax H3</b> (catégorie conditioning / minimax). C'est un nœud du cœur de ComfyUI, rien à installer. Il se place <b>entre</b> le nœud MiniMax H3 Reference to Video et le Guider.</p><h3>Comment le brancher</h3><table class="ag"><tr><th>Entrée du guide</th><th>Se branche sur</th></tr><tr><td><code>positive</code></td><td>la sortie <b>positif</b> de MiniMax H3 Reference to Video (ou la sortie du guide précédent si on en enchaîne plusieurs)</td></tr><tr><td><code>latent</code></td><td>la sortie <b>LATENT</b> de MiniMax H3 Reference to Video, la même pour tous les guides</td></tr><tr><td><code>vae</code></td><td>le Charger VAE <b>vidéo</b> (obligatoire dès qu'on branche une image)</td></tr><tr><td><code>audio_vae</code></td><td>le VAE audio, seulement si on ancre du son</td></tr><tr><td><code>image</code></td><td>un Charger Image (une image) ou des frames de vidéo (un clip)</td></tr><tr><td><code>frame_idx</code></td><td>la frame où l'image est imposée</td></tr></table><p>La sortie <code>positive</code> du dernier guide va dans l'entrée <code>conditioning</code> du <b>BasicGuider</b>. Le latent de l'échantillonneur, lui, reste branché sur la sortie LATENT de Reference to Video : on ne le fait pas passer par les guides.</p><figure class="m wide wf"><a href="wf2/wf_lac_boucle.jpg" target="_blank"><img src="wf2/wf_lac_boucle.jpg" loading="lazy" alt="Exemple réel : Charger Image → deux Add Guide en chaîne (frame 0 puis -1) → GuideBasique"></a><figcaption>Exemple réel : Charger Image → deux Add Guide en chaîne (frame 0 puis -1) → GuideBasique (clic pour agrandir)</figcaption></figure><h3>Choisir frame_idx</h3><ul><li><code>0</code> : la première frame. <code>-1</code> : la dernière (un nombre négatif compte depuis la fin). Préférer -1 à un calcul de longueur.</li><li>Une valeur positive compte en frames à 24 i/s : 120 ≈ 5 s.</li><li>La vidéo fait 17k + 5 frames (124, 243…), le workflow arrondit la durée tout seul.</li><li>Un lot de plusieurs images est ancré comme un <b>clip</b>, recoupé à 5, 22, 39… frames.</li></ul><h3>Les combinaisons utilisées ici</h3><table class="ag"><tr><th>Guides</th><th>Effet</th><th>Exemple</th></tr><tr><td>même image en 0 et -1</td><td>boucle parfaite</td><td>bande du lac, jonction, oiseau en vol</td></tr><tr><td>une image en 0, rien à la fin</td><td>départ imposé, fin libre : un événement</td><td>la cascade qui s'ouvre, la grenouille qui saute</td></tr><tr><td>image A en 0, image B en -1</td><td>transition d'un état à un autre</td><td>la mitose, le dézoom cellules → peau</td></tr><tr><td>0, une frame au milieu, -1</td><td>keyframe pour tenir l'échelle ou la position</td><td>dézoom peau → grenouille (0, 60, -1), oiseau (0, 120)</td></tr></table><aside class="tip">Pour essayer une variante sans débrancher, on désactive un guide avec <b>Ctrl+B</b> (bypass) : il devient violet et laisse passer le conditionnement tel quel. Les images guides doivent avoir le cadrage et le rapport de la vidéo, sinon elles sont recadrées : c'est encore le pixel perfect.</aside><p class="dl"><a href="json/lave_sol_boucle.json" data-json="lave_sol_boucle.json" target="_blank" rel="noopener">⬇ Workflow de base avec deux guides (.json)</a><span class="dlmsg"></span></p>
+</div></section>
+
+<section id="volcan">
+<div class="chap volcan"><div class="wrap"><h2>Projet Simorgh : exemple volcan</h2><p style="margin-top:12px">Un lac de lave au sol avec des rochers pour un parcours, un volcan et sa cascade sur le mur jardin, et sur le mur cour la lave qui se jette dans le vide au-dessus d'une mer de nuages. Un oiseau vole au-dessus.</p></div></div>
+<div class="wrap"><section class="step" id="v-croquis"><h3>1. Le croquis du décor, sur le gabarit</h3><p>On dessine le décor <b>dans son ensemble</b>, directement sur le gabarit du lab : lave au sol, volcan et cascade sur le mur jardin, ciel et falaise sur le mur cour.</p><div class="grid"><figure class="m "><img src="img/vb_in_6246.jpg" loading="lazy" alt="Premier jet, annoté"><figcaption>Premier jet, annoté</figcaption></figure><figure class="m "><img src="img/v_collage_etudiant.jpg" loading="lazy" alt="Le croquis retenu, peint sur le gabarit"><figcaption>Le croquis retenu, peint sur le gabarit</figcaption></figure></div><aside class="tip"><b>Pixel perfect</b> : entrée, génération et patron à la même résolution (ou au même rapport exact). Un élément reste alors au même pixel d'une étape à l'autre, les pliures tombent toujours au même endroit, et on peut repasser une image dans H3, la retoucher ou la superposer sans rien recaler.</aside><p>À l'inverse, générer tout d'un coup dans un autre format donne une image à une seule perspective, qui ne marche plus une fois repliée.</p><figure class="m wide "><img src="img/v_oneshot_horizontal.jpg" loading="lazy" alt="Contre-exemple : 3776 × 1088, plus le format du patron, plus un patron déplié"><figcaption>Contre-exemple : 3776 × 1088, plus le format du patron, plus un patron déplié</figcaption></figure><details class="pr"><summary>Prompt</summary><button class="cp" type="button">Copier</button><pre>This is a flat unfolded map of an immersive room, not a single
+perspective view. &lt;Picture 1&gt; is the hand-drawn layout: left panel =
+Wall 1, center panel = Floor seen from directly above, right panel =
+Wall 2. Keep exactly this layout, the panel boundaries and the main
+shapes and colors.
+
+Render it as a semi-realistic cinematic matte painting:
+- Left panel (Wall 1): an erupting volcano with dark basalt slopes,
+  a waterfall of glowing molten lava pouring down toward the floor,
+  smoke and ash plumes, deep blue dusk sky.
+- Center panel (Floor): a lake of molten lava seen from directly above,
+  incandescent orange and yellow at the core, cooling dark crust
+  breaking into plates, glowing cracks, slow flow from left to right.
+- Right panel (Wall 2): open sky seen looking down into a void,
+  volumetric blue-grey clouds far below; the lava lake spills over the
+  edge as a glowing sheet and falls away into the clouds, breaking
+  into droplets and steam.
+
+The lava is one continuous flow across the panel boundaries.
+Physically plausible light: the lava lights the rocks and clouds from
+below with warm orange glow, contrasting with the cool blue sky.
+Highly detailed textures, natural materials.
+Each panel keeps its own orientation as in the layout.
+No text, no labels, no frame, no people.</pre></details><p class="dl"><a href="json/bande_oneshot_final.json" data-json="bande_oneshot_final.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p></section><section class="step" id="v-bande"><h3>2. Rendre toute la bande</h3><p>Le croquis passe dans H3 Image Edit, bande tournée à la verticale. Plus l'entrée est travaillée (formes, couleurs, perspective de chaque surface), plus le résultat lui reste fidèle.</p><div class="grid"><figure class="m "><img src="img/vb_out_26f6.jpg" loading="lazy" alt="Rendu 1"><figcaption>Rendu 1</figcaption></figure><figure class="m "><img src="img/vb_out_22d3.jpg" loading="lazy" alt="Rendu 2"><figcaption>Rendu 2</figcaption></figure><figure class="m "><img src="img/vb_out_1a6f.jpg" loading="lazy" alt="Rendu 3"><figcaption>Rendu 3</figcaption></figure></div><p class="dl"><a href="json/bande_rendu.json" data-json="bande_rendu.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p></section><section class="step" id="v-mur"><h3>3. La perspective du mur</h3><p>On repeint grossièrement le mur cour par-dessus le rendu, puis on cherche <b>où se tient le spectateur</b> : loin de la falaise, ou debout au bord.</p><div class="grid"><figure class="m "><img src="img/v_mur_croquis.jpg" loading="lazy" alt="Le croquis du mur, peint par-dessus"><figcaption>Le croquis du mur, peint par-dessus</figcaption></figure><figure class="m "><img src="img/mur_out_cc22.jpg" loading="lazy" alt="Rendu du croquis"><figcaption>Rendu du croquis</figcaption></figure><figure class="m "><img src="img/mur_out_c941.jpg" loading="lazy" alt="Variante"><figcaption>Variante</figcaption></figure></div><div class="grid"><figure class="m "><img src="img/v_mur_falaise_v1.jpg" loading="lazy" alt="La falaise vue de loin"><figcaption>La falaise vue de loin</figcaption></figure><figure class="m "><img src="img/v_mur_bord_vide.jpg" loading="lazy" alt="Debout au bord"><figcaption>Debout au bord</figcaption></figure></div><p class="dl"><a href="json/mur_croquis.json" data-json="mur_croquis.json" target="_blank" rel="noopener">⬇ Workflow du croquis de mur (.json)</a><span class="dlmsg"></span></p><p class="dl"><a href="json/mur_rendu.json" data-json="mur_rendu.json" target="_blank" rel="noopener">⬇ Workflow du rendu de mur (.json)</a><span class="dlmsg"></span></p></section><section class="step" id="v-cascade"><h3>4. Avancer la cascade sur le sol</h3><p>Plus intéressant : faire <b>commencer la chute sur le sol</b>. On dessine sur le rendu du sol, en aplats (brun = basalte, rouge = lave, pâle = abîme), et H3 ne rend que la zone dessinée.</p><div class="grid"><figure class="m "><img src="img/v_collage_etudiant2.jpg" loading="lazy" alt="Le croquis : la lave tombe dans le vide dès le sol"><figcaption>Le croquis : la lave tombe dans le vide dès le sol</figcaption></figure><figure class="m "><img src="img/v_sol_rendu_falaise.jpg" loading="lazy" alt="Le rendu"><figcaption>Le rendu</figcaption></figure></div><details class="pr"><summary>Prompt</summary><button class="cp" type="button">Copier</button><pre>Render the sketched area of &lt;Picture 1&gt; as a photorealistic top-down view,
+keeping every shape exactly where it is drawn. Dark brown = basalt rock
+seen from above. Red = lava falling down a cliff. Pale area = deep abyss
+with mist far below. Do not change the lava river. Do not add anything.</pre></details><p class="dl"><a href="json/sol_cascade_rendu_final.json" data-json="sol_cascade_rendu_final.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p></section><section class="step" id="v-jonction"><h3>5. La jonction sol / mur, avec ce nouveau point de fuite</h3><p>Le sol a changé, le mur doit suivre. On le régénère avec le nouveau sol en &lt;Picture 2&gt; : les rochers et la chute du sol se prolongent sur le mur.</p><div class="grid"><figure class="m "><img src="img/v_mur_haut_falaise.jpg" loading="lazy" alt="Mur avec le sol en référence"><figcaption>Mur avec le sol en référence</figcaption></figure><figure class="m "><img src="img/v_mur_au_dela.jpg" loading="lazy" alt="Variante : la vallée tout en bas"><figcaption>Variante : la vallée tout en bas</figcaption></figure></div><details class="pr"><summary>Prompt (mur + sol en référence)</summary><button class="cp" type="button">Copier</button><pre>&lt;Picture 1&gt; is a wall of an immersive room, seen from the front at
+standing eye level. &lt;Picture 2&gt; is the floor of the same room, seen from
+directly above: the viewer stands on it, at the top of a high cliff,
+where the lava pours down between two rock outcrops into a deep drop.
+
+Redraw &lt;Picture 1&gt; as the view from the top of that cliff, looking out.
+Keep the sky, the sea of clouds, the dusk light and the photographic
+style of &lt;Picture 1&gt;.
+
+- At the bottom edge, on the left and on the right: the tops of the two
+  dark basalt rock outcrops, very close to the viewer, matching the rocks
+  of &lt;Picture 2&gt;.
+- Between them, at the bottom center: the edge of the cliff and the open
+  drop, with the lava waterfall falling away below the viewer.
+- Far below, in the lower half: the valley floor at the foot of the cliff,
+  small and distant, where the glowing lava lands and spreads into
+  branching streams, lit orange, with mist drifting over it.
+- Horizon at eye level, around the middle of the image.
+- Upper half: the dusk sky and clouds of &lt;Picture 1&gt;.
+
+Strong sense of height. Photorealistic, natural dusk light, heat haze,
+atmospheric perspective, physically accurate scale.
+No text, no labels, no frame, no people.</pre></details><p class="dl"><a href="json/mur_avec_sol_essai3.json" data-json="mur_avec_sol_essai3.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><p>Puis on colle les deux surfaces côte à côte, on efface en blanc la zone de raccord, et H3 la complète (<b>fill</b>) : la chute passe du sol au mur sans cassure.</p><div class="grid"><figure class="m "><img src="img/v_mur_outpaint_entree.jpg" loading="lazy" alt="Entrée : sol et mur collés, raccord en blanc"><figcaption>Entrée : sol et mur collés, raccord en blanc</figcaption></figure><figure class="m "><img src="img/v_mur_outpaint_sortie.jpg" loading="lazy" alt="Sortie : le mur cour final"><figcaption>Sortie : le mur cour final</figcaption></figure></div><details class="pr"><summary>Prompt</summary><button class="cp" type="button">Copier</button><pre>Fill the white area of &lt;Picture 1&gt; so the whole image becomes one
+seamless photorealistic landscape.
+
+In the white area: the deep volcanic valley far below, seen from high
+above, receding toward the sea of clouds and the horizon. The glowing
+lava streams at the bottom of the white area continue upward from the
+lava pouring off the cliff, branch out across the valley floor and fade
+into the mist and the clouds near the horizon.
+
+Match the brightness, mist and colors on both sides of the white area.
+Keep everything outside the white area exactly as it is: the cliff, the
+rocks, the waterfall, the clouds and the sky. Same framing and size.
+No white patches, no seam, no text, no frame.</pre></details><p class="dl"><a href="json/mur_fill_final.json" data-json="mur_fill_final.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><figure class="m "><img src="img/v_jonction_lab.jpg" loading="lazy" alt="Dans le lab : la chute passe du sol au mur cour sans cassure"><figcaption>Dans le lab : la chute passe du sol au mur cour sans cassure</figcaption></figure></section><section class="step" id="v-rochers"><h3>6. Les rochers : du dessin aux assets 3D</h3><p>Les plateformes du parcours sont des rochers dessinés, rendus dans H3 Image Edit sur fond neutre, puis transformés en <b>assets 3D</b> (Pixal3D + Trellis 2) pour Blender.</p><div class="grid"><figure class="m "><img src="img/roche_croquis.jpg" loading="lazy" alt="Le dessin des quatre rochers"><figcaption>Le dessin des quatre rochers</figcaption></figure><figure class="m "><img src="img/roche_rendu.jpg" loading="lazy" alt="Rendu H3 Image Edit, fond gris neutre"><figcaption>Rendu H3 Image Edit, fond gris neutre</figcaption></figure></div><details class="pr"><summary>Prompt</summary><button class="cp" type="button">Copier</button><pre>&lt;Picture 1&gt; is a sketch of four volcanic rock platforms. Turn it into a
+photorealistic design sheet of the same four objects, keeping exactly
+their shapes, proportions and positions.
+
+Each object is a slab of dark basalt rock emerging from lava: rough,
+porous, cracked surface; the red lines are thin cracks glowing faintly
+with molten lava inside; the underside is darker, slightly molten
+and dripping. The left one is a thin, flat, elongated slab; the other
+three are thicker, angular, broken slabs.
+
+Each object is isolated on a plain neutral light grey background,
+soft even studio lighting, no cast shadows, nothing touching the edges.
+Photorealistic. No lava pool, no text, no labels, no frame.</pre></details><figure class="m wide wf"><a href="wf2/wf_roches_h3.jpg" target="_blank"><img src="wf2/wf_roches_h3.jpg" loading="lazy" alt="Workflow H3 Image Edit : le dessin en &amp;lt;Picture 1&amp;gt;"></a><figcaption>Workflow H3 Image Edit : le dessin en &lt;Picture 1&gt; (clic pour agrandir)</figcaption></figure><p class="dl"><a href="json/roches_h3.json" data-json="roches_h3.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><figure class="m "><img src="img/roche_trellis_164_0.jpg" loading="lazy" alt="Texture générée par Trellis"><figcaption>Texture générée par Trellis</figcaption></figure><figure class="m wide wf"><a href="wf2/wf_trellis.jpg" target="_blank"><img src="wf2/wf_trellis.jpg" loading="lazy" alt="Workflow image vers 3D : prétraitement, conditionnement Pixal3D, forme puis texture Trellis 2"></a><figcaption>Workflow image vers 3D : prétraitement, conditionnement Pixal3D, forme puis texture Trellis 2 (clic pour agrandir)</figcaption></figure><p class="dl"><a href="json/roches_trellis.json" data-json="roches_trellis.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><aside class="tip">Fond gris neutre, objets isolés, rien qui touche les bords : c'est ce qui donne un détourage propre et un bon mesh.</aside><aside class="tip"><b>Décimer dans le workflow</b> : le nœud Decimate Mesh réduit le nombre de polygones avant l'export. Sans lui, chaque rocher sort beaucoup trop lourd pour une scène temps réel (Blender, TouchDesigner, Smode).</aside></section><section class="step" id="v-sol"><h3>7. Refaire la lave du sol</h3><p>La lave du sol ne convenait toujours pas. On la refait en <b>fill</b> : la bande entière, le sol effacé en blanc, H3 ne remplit que le blanc et garde les murs au pixel près.</p><div class="grid"><figure class="m "><img src="img/v_sol_trou_blanc.jpg" loading="lazy" alt="Entrée : le sol effacé en blanc"><figcaption>Entrée : le sol effacé en blanc</figcaption></figure><figure class="m "><img src="img/v_sol_lave_liquide.jpg" loading="lazy" alt="Sortie : un lac de lave liquide"><figcaption>Sortie : un lac de lave liquide</figcaption></figure></div><details class="pr"><summary>Prompt</summary><button class="cp" type="button">Copier</button><pre>&lt;Picture 1&gt; is an immersive room unfolded flat into one vertical strip.
+It is a flat unfolded map, not a single perspective view: the top part
+is a wall seen from the front (a volcano and a lava waterfall), the
+middle part is the floor seen strictly from directly above, the bottom
+part is another wall shown upside down (a cliff edge over a sea of
+clouds).
+
+Fill only the white area of the floor. Keep everything outside the white
+area exactly as it is, pixel for pixel: the volcano, the waterfall, the
+rocks, the cliff, the clouds, the framing and the orientation.
+
+The white area is a vast pool of fully molten lava, a liquid lava lake
+seen straight down from the ceiling, flat top-down view, no perspective,
+no horizon. The lava is liquid and incandescent across almost the whole
+surface: bright orange, yellow and white-hot, glowing from within, with
+slow swirling currents, ripples, bubbles and shimmering liquid folds.
+It is fed by the lava waterfall at the top and flows slowly downward,
+toward the cliff at the bottom, where it pours between the two dark
+rock outcrops.
+
+Only along the outer edges of the pool, where the lava touches the rock
+banks, a thin dark cooling crust forms, in narrow broken bands with
+glowing cracks. The center and most of the surface stay liquid,
+glowing and free of crust.
+
+Real volcanic lava lake, as in aerial drone photography of an active
+lava lake (Nyiragongo, Erta Ale, Kilauea): rich, sharp detail at every
+scale, natural variation, no repeated pattern. Lit only by the glow of
+the lava itself, with a faint heat haze. The colors, brightness and
+grain match the waterfall above and the lava below, so the strip reads
+as one continuous image with no visible seam.
+
+Photorealistic, ultra-detailed, physically accurate scale.
+No dark crust plates in the middle, no rocks or boulders in the lava,
+no people, no text, no frame, no white patches.</pre></details><p class="dl"><a href="json/sol_fill_final.json" data-json="sol_fill_final.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><p>C'est cette bande, lave refaite, qui sert d'entrée à l'animation.</p></section><section class="step" id="v-anim"><h3>8. Animer ce qui tourne dans la démo</h3><p>Premier test sur le sol, six mots, pour voir si H3 garde le cadre :</p><figure class="m wide"><video src="vid/v_lave_premier_test.mp4" muted loop playsinline preload="metadata"></video><figcaption>« lava is flowing, camera locked doesn't move »</figcaption></figure><p class="dl"><a href="json/lave_premier_test.json" data-json="lave_premier_test.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><p>Dans la scène Blender, trois vidéos générées se partagent le lab. Chacune est une boucle ou un événement, toujours caméra verrouillée.</p><p><b>La bande du lac</b> (sol et mur jardin) : toute la bande en une génération, 1888 × 544, 5 s. La même image en guide à la frame 0 et à la frame 120 : ça boucle. Elle est ensuite agrandie en 3288 × 960 et passée à 30 i/s pour Blender.</p><div class="grid"><figure class="m "><img src="img/in_bande_lac_boucle_0.jpg" loading="lazy" alt="Entrée : la bande, lave refaite"><figcaption>Entrée : la bande, lave refaite</figcaption></figure><figure class="m"><video src="vid/v_bande_lac_boucle_src.mp4" muted loop playsinline preload="metadata"></video><figcaption>Sortie : la bande en boucle</figcaption></figure></div><details class="pr"><summary>Prompt</summary><button class="cp" type="button">Copier</button><pre>Locked-off tripod shot. The camera is completely static: no pan, no
+tilt, no zoom, no dolly, no shake, no parallax. The volcano, the cliffs,
+the rock banks, the two rock outcrops and the horizon stay
+pixel-perfectly in place; only the lava, smoke, mist and clouds move.
+
+&lt;Picture 1&gt; is an immersive room unfolded flat into one horizontal
+strip. It is a flat unfolded map, not a panorama: each section keeps its
+own viewpoint and orientation, do not merge them into one landscape and
+do not rotate anything.
+
+- Left section, a wall lying on its side, its top on the far left edge:
+  the volcano smokes slowly, its ash plume drifting; the lava waterfall
+  pours steadily and continuously from left to right, toward the floor,
+  glowing liquid rippling, a few sparks and a faint heat haze.
+- Center section, the floor seen from directly above: the molten lava
+  lake flows slowly from left to right, from the foot of the waterfall
+  toward the cliff. The liquid surface swirls and churns gently, glowing
+  currents drift and fold into each other, slow ripples and occasional
+  bubbles, the thin crust along the edges barely moves. On the right,
+  the lava pours steadily over the cliff edge between the two rock
+  outcrops and falls away into the void.
+- Right section, a wall lying on its side, its top on the far right
+  edge: far below the cliff, the lava streams glow and flow slowly; mist
+  and the sea of clouds roll gently.
+
+The lava stays molten, glowing and bright for the whole clip: it never
+cools, never darkens, never crusts over and never turns to smoke.
+All motion is calm, natural and even: the lava is not more agitated
+than the clouds.
+Constant intensity from the first frame to the last: no build-up, no
+burst, no eruption, no pause, no change of light or weather.
+A seamless cyclic loop: the last frame matches the first.
+Photorealistic.</pre></details><figure class="m wide wf"><a href="wf2/wf_bande_lac_boucle.jpg" target="_blank"><img src="wf2/wf_bande_lac_boucle.jpg" loading="lazy" alt="Workflow : la bande en guide aux frames 0 et 120"></a><figcaption>Workflow : la bande en guide aux frames 0 et 120 (clic pour agrandir)</figcaption></figure><p class="dl"><a href="json/bande_lac_boucle.json" data-json="bande_lac_boucle.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><p><b>Le mur cour, c'est la jonction qui est animée</b>, pas le mur seul. On cadre la chute là où elle passe du sol au mur (768 × 992), guides en frame 0 et 238, et cette vidéo recouvre le mur cour et la bande de sol qui le touche. C'est là que l'œil cherche la cassure, donc c'est là qu'on met la génération.</p><div class="grid"><figure class="m tall"><img src="img/in_jonction_boucle_0.jpg" loading="lazy" alt="Entrée : le mur cour final"><figcaption>Entrée : le mur cour final</figcaption></figure><figure class="m"><video src="vid/v_jonction_src.mp4" muted loop playsinline preload="metadata"></video><figcaption>Sortie : la jonction en boucle</figcaption></figure></div><details class="pr"><summary>Prompt</summary><button class="cp" type="button">Copier</button><pre>Locked-off tripod shot. The camera is completely static: no pan, no
+tilt, no zoom, no dolly, no shake, no parallax. The two rock outcrops,
+the valley floor and the horizon stay pixel-perfectly in place.
+
+The exact scene of the reference image: we stand at the top of a high
+cliff, looking out over a deep volcanic valley and a sea of clouds
+at dusk. The whole landscape is alive, with calm, natural motion:
+- The sky is clearly moving: the clouds drift steadily across the
+  frame from left to right, slowly changing shape.
+- The sea of clouds below rolls and flows like a slow ocean, banks of
+  cloud drifting and folding over each other.
+- Wisps of mist and smoke drift across the valley floor and rise
+  gently along the cliff.
+- Far below, the lava streams of the valley glow and flow slowly.
+- In the foreground, the lava river flows calmly and smoothly between
+  the two rock outcrops and pours over the cliff edge at a steady,
+  moderate pace, like thick honey, with a few sparks.
+
+The lava is not more agitated than the clouds: every element moves
+at the same calm, even pace.
+Constant intensity from the first frame to the last: no build-up, no
+burst, no pause, no change of light. A seamless cyclic loop: the last
+frame matches the first. Photorealistic.</pre></details><figure class="m wide wf"><a href="wf2/wf_jonction_boucle.jpg" target="_blank"><img src="wf2/wf_jonction_boucle.jpg" loading="lazy" alt="Workflow : guides en frame 0 et 238"></a><figcaption>Workflow : guides en frame 0 et 238 (clic pour agrandir)</figcaption></figure><p class="dl"><a href="json/jonction_boucle.json" data-json="jonction_boucle.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><p><b>La cascade du mur jardin</b> est un événement : un seul guide en frame 0, la fin reste libre, et la cascade s'ouvre sur une grotte. Le cadre prend le mur et le bord du sol ensemble. Dans la démo, elle se déclenche à la frame 159, puis tourne en boucle.</p><div class="grid"><figure class="m "><img src="img/in_cascade_ouverture_0.jpg" loading="lazy" alt="Entrée : mur jardin et bord du sol"><figcaption>Entrée : mur jardin et bord du sol</figcaption></figure><figure class="m"><video src="vid/v_cascade_src.mp4" muted loop playsinline preload="metadata"></video><figcaption>Sortie : l'ouverture</figcaption></figure><figure class="m"><video src="vid/v_cascade_demo.mp4" muted loop playsinline preload="metadata"></video><figcaption>Dans la démo : ouverture puis boucle</figcaption></figure></div><details class="pr"><summary>Prompt</summary><button class="cp" type="button">Copier</button><pre>Locked-off tripod shot. The camera is completely static: no pan, no
+tilt, no zoom, no dolly, no shake, no parallax. The volcano, the cliffs,
+the rock banks and the horizon stay pixel-perfectly in place.
+
+The exact scene of &lt;Picture 1&gt;. The upper part is a wall seen from the
+front, the lower part is a lava lake seen from directly above; keep
+both viewpoints exactly as they are.
+
+At the start, the lava waterfall pours steadily, exactly as in the
+image. Then, very slowly, the waterfall parts down the middle, like a
+heavy curtain of molten lava drawing open: the flow splits into two
+streams that slide apart to the left and to the right, still pouring
+down on each side. Between them, a deep cavity is gradually revealed in
+the cliff behind the falls: a dark volcanic cave with rough basalt
+walls, its depths faintly lit by a warm inner glow, wisps of steam
+drifting out of it. The opening is slow and majestic, continuous, with
+no explosion, no rockfall and no sudden movement. At the end, the two
+streams keep pouring on each side of the open cave, which stays open.
+
+Throughout the clip, the volcano smokes slowly, and the lava lake below
+keeps flowing calmly from the foot of the falls, without any change.
+The light stays the same. Photorealistic, natural lava physics.</pre></details><p class="dl"><a href="json/cascade_ouverture.json" data-json="cascade_ouverture.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><aside class="tip">Formats H3 : largeur et hauteur multiples de 32, longueur en 17k + 5 frames, sortie à 24 i/s. On retime à 30 i/s pour le lab.</aside></section><section class="step" id="v-blender"><h3>9. Ce que fait Blender, sans IA</h3><p>Le reste de la démo est fait à la main dans Blender, et c'est ce qui la rend interactive.</p><ul><li><b>La lave réagit aux rochers</b> : un Geometry Nodes (<code>Lave_Proximite</code>) mesure la distance de chaque point du sol aux plateformes. Le shader s'en sert pour faire partir des ondes de lumière autour des rochers.</li><li><b>Les vidéos sont mélangées par zone</b> : la bande du lac partout, la jonction par-dessus côté cour (fondu sur environ un mètre), la cascade côté jardin.</li><li><b>Des interrupteurs</b> sur la scène : <code>Oiseau</code>, <code>Cascade_ouverture</code>, <code>Jonction_detail</code>, <code>Luminosite_sol</code>. Ce sont les leviers qu'on branchera ensuite sur les capteurs dans TouchDesigner ou Smode.</li></ul><figure class="m wide "><img src="img/v_rochers_blender.jpg" loading="lazy" alt="Les rochers 3D posés sur la lave, dans Blender"><figcaption>Les rochers 3D posés sur la lave, dans Blender</figcaption></figure></section><section class="step" id="v-oiseau"><h3>10. L'oiseau : du schéma au sprite</h3><p>Un schéma, mis en couleur, puis rendu dans H3 Image Edit.</p><div class="grid"><figure class="m "><img src="img/oiseau_croquis.jpg" loading="lazy" alt="Le schéma"><figcaption>Le schéma</figcaption></figure><figure class="m "><img src="img/oiseau_a.jpg" loading="lazy" alt="Mis en couleur"><figcaption>Mis en couleur</figcaption></figure><figure class="m "><img src="img/oiseau_c.jpg" loading="lazy" alt="Rendu H3 Image Edit"><figcaption>Rendu H3 Image Edit</figcaption></figure></div><details class="pr"><summary>Prompt du rendu</summary><button class="cp" type="button">Copier</button><pre>&lt;Picture 1&gt; is a colored sketch of a mythical bird in flight. Turn it
+into a finished, photorealistic creature design, keeping exactly the
+pose, the proportions, the silhouette and the color layout of the
+sketch: wings spread wide, the head turned slightly toward the viewer,
+the body seen from below, three very long tail feathers trailing down.
+
+The bird is a bird of light, inspired by the Simorgh of Persian
+mythology: majestic, ancient, benevolent and serene, noble and graceful
+like a great bird of prey crossed with a long-tailed pheasant, a
+creature of myth rather than a real species.
+
+- Body and wings: pure white, soft luminous plumage that seems to glow
+  from within, warm ivory in the shadows, layered feathers with fine
+  detail, the long flight feathers slightly translucent at their tips.
+- The trailing edges of the wings, the tips of the flight feathers and
+  the base of the tail are edged with warm golden light, as in the
+  sketch, like sunlight caught in the feathers.
+- Golden legs and talons; a small warm orange-gold beak.
+- A tall, elegant crest of three slender plumes on the head: one red,
+  one green, one blue.
+- The three long tail feathers are the three primary colors of light:
+  one pure red, one pure green, one pure blue, each glowing softly like
+  a ray of colored light, each ending in a wide, elegant feather tip.
+  Together the red, green and blue are the white light the bird is made
+  of, split into its components.
+- Thin, soft rays of golden light radiate from behind its head and
+  shoulders, like a faint halo.
+
+The red, green and blue appear only on the crest and the three tail
+feathers, never on the body or the wings.
+Dark, plain, neutral background so the light of the bird stands out,
+soft rim light around its silhouette. Photorealistic, ultra-detailed
+feathers, cinematic, physically plausible anatomy.
+No text, no frame, no other creatures, no landscape.</pre></details><p class="dl"><a href="json/oiseau_rendu.json" data-json="oiseau_rendu.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><aside class="tip">Le rendu n'a pas vraiment la tête de l'oiseau dessiné : sur le schéma, elle est trop petite pour que H3 la lise. Il aurait fallu lui donner en plus un dessin de la tête en grand, bien détaillé.</aside><p><b>Plusieurs angles</b> : on génère d'autres vues du même oiseau (changement d'angle, posé ailes repliées), et on reprend ensuite la vue la plus proche de l'angle voulu comme référence.</p><div class="grid"><figure class="m "><img src="img/oiseau_angle_out.jpg" loading="lazy" alt="Changement d&#x27;angle"><figcaption>Changement d'angle</figcaption></figure><figure class="m "><img src="img/oiseau_mv.jpg" loading="lazy" alt="Posé, ailes repliées"><figcaption>Posé, ailes repliées</figcaption></figure></div><p class="dl"><a href="json/oiseau_angle.json" data-json="oiseau_angle.json" target="_blank" rel="noopener">⬇ Workflow du changement d'angle (.json)</a><span class="dlmsg"></span></p><p><b>Générer l'oiseau directement dans la scène</b>, puis le détourer : il prend la bonne lumière (dessous orangé par la lave, dessus bleuté par le ciel).</p><div class="grid"><figure class="m "><img src="img/oiseau_e.jpg" loading="lazy" alt="Le mur cour"><figcaption>Le mur cour</figcaption></figure><figure class="m "><img src="img/oiseau_key.jpg" loading="lazy" alt="L&#x27;oiseau ajouté dans la scène"><figcaption>L'oiseau ajouté dans la scène</figcaption></figure></div><details class="pr"><summary>Prompt d'intégration</summary><button class="cp" type="button">Copier</button><pre>Edit &lt;Picture 1&gt;: add the bird from &lt;Picture 2&gt; into this landscape.
+Keep &lt;Picture 1&gt; exactly as it is: same framing, same horizon line,
+same sky, clouds, valley and lava streams, same resolution.
+
+The bird hovers in mid-air above the sea of clouds, slightly to the
+left of center and just above the horizon, at a believable size, as if
+it were about thirty meters from the camera. It keeps exactly the same
+design as &lt;Picture 2&gt;: pure white plumage, the small head with its red,
+green and blue crest, and the three long red, green and blue tail
+feathers. Hovering pose: wings spread wide and slightly raised, tail
+feathers hanging down and gently flowing in the wind.
+
+Integrate it physically into the scene light, as if photographed in
+this exact place at dusk:
+- the underside of the body, wings and tail is lit by a warm orange
+  glow rising from the lava streams far below;
+- the top of the wings and head catches the cool blue-violet light of
+  the dusk sky;
+- a thin warm rim light along its back and wing edges, from the low
+  sunset glow on the horizon;
+- the white feathers take on the colors of the sky; no pure white, no
+  studio light, no dark background around it;
+- a slight atmospheric haze and the same softness, grain and color
+  grading as the rest of the photo.
+
+Photorealistic, one single real photograph, no visible compositing.
+No text, no frame.</pre></details><figure class="m wide wf"><a href="wf2/wf_oiseau_scene.jpg" target="_blank"><img src="wf2/wf_oiseau_scene.jpg" loading="lazy" alt="Workflow : &amp;lt;Picture 1&amp;gt; le décor, &amp;lt;Picture 2&amp;gt; l&#x27;oiseau"></a><figcaption>Workflow : &lt;Picture 1&gt; le décor, &lt;Picture 2&gt; l'oiseau (clic pour agrandir)</figcaption></figure><p class="dl"><a href="json/oiseau_dans_scene.json" data-json="oiseau_dans_scene.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><p>On l'anime en vol <b>directement dans la scène</b>, en boucle (même image en frame 0 et -1), puis on extrait son alpha avec <b>LTX AlphaGen</b> : c'est le sprite de l'oiseau qui vole.</p><div class="grid"><figure class="m"><video src="vid/v_oiseau_cercles.mp4" muted loop playsinline preload="metadata"></video><figcaption>« locked tripod camera, the bird fly in circles »</figcaption></figure><figure class="m "><img src="img/o_alpha_0010.jpg" loading="lazy" alt="Une frame du sprite, avec son alpha"><figcaption>Une frame du sprite, avec son alpha</figcaption></figure><figure class="m "><img src="img/o_alpha_0030.jpg" loading="lazy" alt="40 frames en boucle"><figcaption>40 frames en boucle</figcaption></figure></div><figure class="m wide wf"><a href="wf2/wf_oiseau_boucle.jpg" target="_blank"><img src="wf2/wf_oiseau_boucle.jpg" loading="lazy" alt="Workflow : l&#x27;image clé en guide aux frames 0 et -1"></a><figcaption>Workflow : l'image clé en guide aux frames 0 et -1 (clic pour agrandir)</figcaption></figure><p class="dl"><a href="json/oiseau_boucle.json" data-json="oiseau_boucle.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><p><b>Plus de contrôle : dessiner ses images clés sur le décor.</b> On dessine directement sur l'image du décor (ici la jonction, au format de la vidéo) : un trait pour le trajet, un croquis grossier de l'oiseau là où il doit se poser. H3 Image Edit efface les traits et remplace le croquis par l'oiseau, à la même place, à la même taille, avec la lumière de la scène.</p><div class="grid"><figure class="m "><img src="img/kf_decor_dessine.jpg" loading="lazy" alt="Le décor, dessiné par-dessus : trajet et oiseau posé"><figcaption>Le décor, dessiné par-dessus : trajet et oiseau posé</figcaption></figure><figure class="m "><img src="img/kf_rendu_pose.jpg" loading="lazy" alt="Image clé rendue : posé, de face"><figcaption>Image clé rendue : posé, de face</figcaption></figure><figure class="m "><img src="img/kf_rendu_dos.jpg" loading="lazy" alt="Variante : posé, vu de dos"><figcaption>Variante : posé, vu de dos</figcaption></figure></div><details class="pr"><summary>Prompt de l'image clé</summary><button class="cp" type="button">Copier</button><pre>Edit &lt;Picture 1&gt;. Remove every magenta line and mark completely and
+restore the sky, clouds, valley and lava behind them, as if they had
+never been drawn.
+
+Replace the rough white sketch on the dark rock at the bottom right
+with the real bird of &lt;Picture 2&gt;. The bird must fit exactly inside
+the area of the sketch: exactly the same size, no bigger, no smaller.
+It is small in the frame, about one fifth of the image width, and
+stays entirely on the rock, from the crest at the top left of the
+sketch to the tip of the tail at the bottom right of the sketch.
+
+The bird is seen from above, from behind: we look down on its back.
+Its head is at the top left of the sketch, pointing toward the
+valley, with the red, green and blue crest on top. Its white body and
+folded wings stretch diagonally down to the right. Its three long
+tail feathers, red, green and blue, trail down to the bottom right,
+exactly where the colored strokes are in the sketch.
+Same bird as &lt;Picture 2&gt;: pure white plumage, small fine head.
+
+Integrate it into the scene: warm orange glow from the lava on the
+left side of its body, cool blue dusk light on its back, a soft
+contact shadow on the rock. Keep everything else in &lt;Picture 1&gt;
+exactly the same. Photorealistic, no lines, no drawing.</pre></details><p class="dl"><a href="json/keyframe_dessin.json" data-json="keyframe_dessin.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><p>Ces images clés deviennent des <b>Add Guide</b> : on impose où est l'oiseau à telle frame, et H3 n'invente que le mouvement entre deux. Comme elles sont au pixel près sur le décor, rien ne saute au moment du guide. Ici, la même image en frame 0 et en frame 120 force l'oiseau à revenir exactement à sa place.</p><div class="grid"><figure class="m"><video src="vid/v_oiseau_keyframes.mp4" muted loop playsinline preload="metadata"></video><figcaption>Guides en frame 0 et 120</figcaption></figure><figure class="m wide wf"><a href="wf2/wf_oiseau_keyframes.jpg" target="_blank"><img src="wf2/wf_oiseau_keyframes.jpg" loading="lazy" alt="Workflow : guides 0 et 120"></a><figcaption>Workflow : guides 0 et 120 (clic pour agrandir)</figcaption></figure></div><p class="dl"><a href="json/oiseau_keyframes.json" data-json="oiseau_keyframes.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p></section><section class="step" id="v-final"><h3>11. Assembler, faire réagir, varier</h3><p>L'oiseau est un plan devant le mur cour qui joue les 40 images du sprite en boucle, avec son interrupteur. Traité comme un sprite, il peut bouger, réagir au public et avoir plusieurs animations selon les événements.</p><figure class="m wide"><video src="vid/v_rec_volcan_oiseau.mp4" muted loop playsinline preload="metadata"></video><figcaption>Dans Blender : l'oiseau sur le mur cour, la jonction avec le sol</figcaption></figure><p>Ce qui marche bien avec l'IA : <b>les variations</b>. Même décor, même cadrage, et la lave s'éteint.</p><div class="grid"><figure class="m "><img src="img/v_variation_active.jpg" loading="lazy" alt="Version active"><figcaption>Version active</figcaption></figure><figure class="m "><img src="img/v_variation_eteinte.jpg" loading="lazy" alt="Variation : la lave éteinte"><figcaption>Variation : la lave éteinte</figcaption></figure></div><figure class="m wide"><video src="vid/v_rec_volcan_variation.mp4" muted loop playsinline preload="metadata"></video><figcaption>Les deux versions côte à côte, rochers posés sur la lave</figcaption></figure><figure class="m wide"><video src="vid/v_lab_volcan_deplie.mp4" muted loop playsinline preload="metadata"></video><figcaption>Lab volcan déplié : jardin à gauche, sol au centre, cour à droite</figcaption></figure></section><section class="step" id="v-main"><h3>IA ou à la main ?</h3><p>Le travail, c'est surtout de savoir quand l'IA sert et quand la main est plus juste.</p><ul><li><b>À la main</b> : la composition sur le gabarit, les croquis par-dessus les rendus, le dessin des rochers et de l'oiseau, le collage des jonctions, le placement et le timing dans Blender.</li><li><b>À l'IA</b> : la matière et le réalisme (lave, roche, plumes), compléter une zone en fill, animer ce qui coule et ce qui flotte, trouver d'autres angles, sortir un asset 3D, décliner des variations.</li></ul><p>En gros : l'IA quand on veut de la matière vite, la main dès qu'il faut de la précision (une position, un raccord, un trajet, un moment).</p></section></div>
+</section>
+
+<section id="grenouille">
+<div class="chap grenouille"><div class="wrap"><h2>Projet grenouille</h2><p style="margin-top:12px">D'un être monocellulaire à une grenouille dans une rue, par un grand dézoom. Elle marche, saute hors du sol et réapparaît géante sur le mur, où elle écrase un bus.</p></div></div>
+<div class="wrap"><section class="step" id="g-cellules"><h3>1. Des cellules qui couvrent tout le lab</h3><p>L'idée : partir d'un être monocellulaire, puis un grand dézoom jusqu'à la grenouille dans une rue.</p><p>On génère des cellules, puis on <b>retravaille la couleur</b> avec H3 Image Edit vers celle qu'aura la grenouille : brun, jaune, vert.</p><div class="grid"><figure class="m "><img src="img/g2_cell_colref.jpg" loading="lazy" alt="Référence couleur"><figcaption>Référence couleur</figcaption></figure><figure class="m "><img src="img/g2_cell_couleur.jpg" loading="lazy" alt="Couleurs appliquées"><figcaption>Couleurs appliquées</figcaption></figure></div><details class="pr"><summary>Prompt couleur</summary><button class="cp" type="button">Copier</button><pre>apply the exact colors of image 2 to image 1, brown yellow green</pre></details><p class="dl"><a href="json/cellules_couleur.json" data-json="cellules_couleur.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><p>Puis une <b>grande image carrée</b>, plus grande que le lab : cette texture doit pouvoir bouger et interagir, il faut de la marge.</p><div class="grid"><figure class="m "><img src="img/g2_cell_carre.jpg" loading="lazy" alt="« A big circle of cells », 3776 × 3776"><figcaption>« A big circle of cells », 3776 × 3776</figcaption></figure><figure class="m "><img src="img/g2_cell_etendu.jpg" loading="lazy" alt="Étendue bord à bord"><figcaption>Étendue bord à bord</figcaption></figure></div><p class="dl"><a href="json/cellules_cercle.json" data-json="cellules_cercle.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><details class="pr"><summary>Prompt de l'extension</summary><button class="cp" type="button">Copier</button><pre>Extend the cell pattern of &lt;Picture 1&gt; so it fills the entire frame,
+edge to edge. Remove the grey background and the round outline
+completely: no circle, no border, no empty space, no vignette.
+
+Same cells everywhere: rounded translucent cells of varied sizes,
+packed tightly together, thin glowing membranes between them, small
+darker organic shapes inside each cell, fine granular texture in the
+gaps. Keep the same colors and light: patches of bright yellow, lime
+green and deep brown, with soft diagonal shadows across the pattern.
+Cells keep a similar size across the whole image, so it looks like a
+close-up of a living tissue that continues beyond the frame.
+Photorealistic microscope photography, sharp, high detail.</pre></details><p class="dl"><a href="json/cellules_extension.json" data-json="cellules_extension.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p></section><section class="step" id="g-mitose"><h3>2. La mitose : une image clé au début, une à la fin</h3><p>Première frame : l'image des cellules où l'on <b>efface toutes les cellules sauf une</b>. Dernière frame : l'image avec toutes les cellules. Le prompt décrit un plan fixe de mitose qui dure tout le clip.</p><figure class="m wide "><img src="img/s_mitose_guides.jpg" loading="lazy" alt="Frame 0 et frame -1 sont des guides, le milieu est inventé"><figcaption>Frame 0 et frame -1 sont des guides, le milieu est inventé</figcaption></figure><figure class="m wide wf"><a href="wf2/wf_mitose.jpg" target="_blank"><img src="wf2/wf_mitose.jpg" loading="lazy" alt="Workflow : une cellule en frame 0, la colonie en frame -1 (guides intermédiaires essayés puis désactivés)"></a><figcaption>Workflow : une cellule en frame 0, la colonie en frame -1 (guides intermédiaires essayés puis désactivés) (clic pour agrandir)</figcaption></figure><div class="grid"><figure class="m"><video src="vid/v_cellules_mitose.mp4" muted loop playsinline preload="metadata"></video><figcaption>La mitose</figcaption></figure><figure class="m"><video src="vid/v_cellules_relayvsr.mp4" muted loop playsinline preload="metadata"></video><figcaption>Version RelayVSR ×4</figcaption></figure></div><details class="pr"><summary>Prompt</summary><button class="cp" type="button">Copier</button><pre>Static camera, microscope view, plain light background. Real living
+tissue growing: a single cell slowly divides by mitosis, its membrane
+stretching and pinching until it splits in two. Then each cell keeps
+dividing, one after another, never all at once.
+
+The growth is continuous from the very first frame to the very last
+frame: at every moment some cells are dividing, and the colony never
+pauses and never finishes early. It spreads outward steadily, the
+edge creeping forward like a living organism, reaching the borders of
+the frame only at the very end of the video.
+
+Everything is alive and soft: membranes wobble and breathe, the fluid
+inside each cell swirls slowly, cells squeeze and push against their
+neighbors and deform as new ones appear, the dark shapes inside drift
+and split too. Smooth, slow, organic motion, no mechanical movement,
+no cuts, no fades, no morphing. Photorealistic microscope footage.</pre></details><p class="dl"><a href="json/mitose.json" data-json="mitose.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><p>Avec un détourage, on ne garde que l'animation qui nous convient, et on la pose sur le lab dans Blender.</p><figure class="m wide"><video src="vid/v_cellules_lock135.mp4" muted loop playsinline preload="metadata"></video><figcaption>La mitose détourée, posée sur le lab</figcaption></figure></section><section class="step" id="g-grenouille"><h3>3. La grenouille : du dessin au rendu, en plusieurs passes</h3><p>Le point de départ : le dessin de la grenouille, de profil et de dessus. Il passe plusieurs fois dans H3 Image Edit jusqu'à une grenouille satisfaisante.</p><figure class="m wide "><img src="img/g2_premier_sketch.jpg" loading="lazy" alt="Le premier dessin"><figcaption>Le premier dessin</figcaption></figure><figure class="m wide "><img src="img/g2_passe1.jpg" loading="lazy" alt="Première passe : les deux vues rendues"><figcaption>Première passe : les deux vues rendues</figcaption></figure><div class="grid"><figure class="m "><img src="img/g2_passe3.jpg" loading="lazy" alt="Passe suivante"><figcaption>Passe suivante</figcaption></figure><figure class="m "><img src="img/g_grenouille_complete.jpg" loading="lazy" alt="La grenouille retenue"><figcaption>La grenouille retenue</figcaption></figure></div><details class="pr"><summary>Prompt des passes</summary><button class="cp" type="button">Copier</button><pre>Faithfully refine the reference drawing. Keep exactly the same composition, poses, proportions and colors. Pure watercolor painting in the style of the reference, cleaner and more finished, shapes defined only by color and soft painted edges, with no pencil lines and no outlines. White background.</pre></details><p class="dl"><a href="json/grenouille_passe.json" data-json="grenouille_passe.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p></section><section class="step" id="g-peau"><h3>4. La peau, avec l'identité de la grenouille</h3><p>On <b>croppe son dos tout seul</b>, et on génère une grande texture de peau avec ce crop comme guide : la peau garde les rayures et les couleurs de cette grenouille.</p><div class="grid"><figure class="m tall"><img src="img/g2_dos.jpg" loading="lazy" alt="Le dos croppé"><figcaption>Le dos croppé</figcaption></figure><figure class="m tall"><img src="img/g2_peau.jpg" loading="lazy" alt="La peau générée"><figcaption>La peau générée</figcaption></figure></div><details class="pr"><summary>Prompt</summary><button class="cp" type="button">Copier</button><pre>Turn &lt;Picture 1&gt; into semi-realistic green tree frog skin, seen in a
+close-up from above. Keep exactly the same composition: the long wavy
+brown stripe on the left running from top to bottom, the second
+lighter stripe entering at the bottom right, the yellow-green band
+between them, the darker green edges.
+
+Semi-realistic look, halfway between a detailed nature illustration
+and a macro photograph: smooth, slightly moist skin with a soft
+satin sheen, tiny rounded bumps and pores, fine granular speckles,
+subtle darker flecks along the stripes, soft color gradients from
+yellow to green. The brown stripes have soft natural edges, slightly
+darker at the borders. Keep a light painterly softness in the color
+transitions, but the skin texture is sharp and detailed everywhere.
+The skin fills the entire image edge to edge. No eyes, no legs, no
+background.</pre></details><figure class="m wide wf"><a href="wf2/wf_peau.jpg" target="_blank"><img src="wf2/wf_peau.jpg" loading="lazy" alt="Workflow H3 Image Edit : le crop du dos en &amp;lt;Picture 1&amp;gt;"></a><figcaption>Workflow H3 Image Edit : le crop du dos en &lt;Picture 1&gt; (clic pour agrandir)</figcaption></figure><p class="dl"><a href="json/peau.json" data-json="peau.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p></section><section class="step" id="g-dezoom"><h3>5. Le grand dézoom avec Add Guide</h3><p>Cellules en frame 0, peau en frame -1. Les premiers essais faisaient du morphing ; « powers-of-ten zoom » a donné un vrai recul.</p><figure class="m wide "><img src="img/s_zoom1_guides.jpg" loading="lazy" alt="Cellules en frame 0, peau en frame -1"><figcaption>Cellules en frame 0, peau en frame -1</figcaption></figure><figure class="m wide"><video src="vid/v_zoom_cellules_peau.mp4" muted loop playsinline preload="metadata"></video><figcaption>Dézoom cellules → peau</figcaption></figure><details class="pr"><summary>Prompt</summary><button class="cp" type="button">Copier</button><pre>Static top-down view, one single continuous fast camera pull-back,
+straight up, no rotation, no cuts. The camera rushes backward,
+accelerating like a powers-of-ten zoom: the scale changes quickly,
+the cells shrink fast and the frog skin is revealed in a few seconds.
+
+It starts inside living tissue: packed glowing cells under a
+microscope, pulsing and breathing. Everything is alive and in motion.
+As the camera pulls back fast, the cells shrink rapidly and fuse
+together: membranes dissolve like soap bubbles merging, the cytoplasm
+flows from one cell into the next, neighboring cells melt into soft
+rounded bumps of skin.
+
+The brown cells migrate and gather like living pigment, flowing
+together to grow the two wavy brown stripes, which stretch and
+undulate as they take shape. The yellow and green cells spread and
+blend into the smooth skin gradients. The surface becomes wet and
+glistening, tiny bright droplets bead up, pores open.
+
+The camera slows down at the very end and settles on the frog skin,
+which keeps breathing: it slowly swells and relaxes, ripples travel
+across it, everything moves like living flesh. Fluid, soft,
+biological motion at every moment, never mechanical, never a
+crossfade, never a jump. Semi-realistic macro photography. No text.</pre></details><p class="dl"><a href="json/dezoom_cellules_peau.json" data-json="dezoom_cellules_peau.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><p>Même chose de la peau à la grenouille, avec trois guides : peau (0), dos (60), grenouille entière (-1). Celui du milieu tient l'échelle.</p><figure class="m wide "><img src="img/s_zoom2_guides.jpg" loading="lazy" alt="Trois guides : 0, 60 et -1"><figcaption>Trois guides : 0, 60 et -1</figcaption></figure><figure class="m wide"><video src="vid/v_zoom_peau_grenouille.mp4" muted loop playsinline preload="metadata"></video><figcaption>Dézoom peau → grenouille</figcaption></figure><details class="pr"><summary>Prompt</summary><button class="cp" type="button">Copier</button><pre>Static top-down view. One single, fast, continuous camera pull-back,
+straight up, no rotation, no cuts: a powers-of-ten zoom out with a
+steady exponential speed, we clearly feel the change of scale.
+
+It starts very close on the moist frog skin, with its brown stripe,
+bumps and glistening speckles. The camera rushes backward: the skin
+becomes the back of the frog, the two brown stripes appear side by
+side, then the head and the two glossy eyes enter the frame, then
+the legs with their webbed toes and round orange pads, until the
+whole frog is seen from above, in the middle of a plain white
+background. The camera slows down at the very end and settles.
+
+The frog is alive the whole time: its back slowly swells and relaxes
+with each breath, its throat pulses, its skin glistens. At the end it
+blinks once and its toes twitch lightly. It stays in place and does
+not jump or turn. The change comes from the zoom, not from morphing.
+Same frog, same skin, same colors from the first to the last frame.
+Semi-realistic macro photography. No text.</pre></details><figure class="m wide wf"><a href="wf2/wf_3guides.jpg" target="_blank"><img src="wf2/wf_3guides.jpg" loading="lazy" alt="Workflow : peau en frame 0, dos en frame 60, grenouille en frame -1"></a><figcaption>Workflow : peau en frame 0, dos en frame 60, grenouille en frame -1 (clic pour agrandir)</figcaption></figure><p class="dl"><a href="json/dezoom_peau_grenouille.json" data-json="dezoom_peau_grenouille.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><p>Les deux vidéos n'avaient pas la même vitesse : on mesure l'échelle image par image et on retime pour un zoom à vitesse constante.</p><div class="grid"><figure class="m"><video src="vid/v_zoom_peau_continu.mp4" muted loop playsinline preload="metadata"></video><figcaption>Dézoom retimé, vitesse constante</figcaption></figure><figure class="m "><img src="img/g_dezoom_continu.jpg" loading="lazy" alt="Le raccord ne se voit plus"><figcaption>Le raccord ne se voit plus</figcaption></figure></div></section><section class="step" id="g-rue"><h3>6. Le décor : la ruelle</h3><p>La ruelle part d'un nouveau dessin de la bande : la flaque, le journal, la plaque d'égout, les façades sur les murs.</p><figure class="m wide "><img src="img/g_rue_dessin.jpg" loading="lazy" alt="Le dessin de la ruelle"><figcaption>Le dessin de la ruelle</figcaption></figure><figure class="m wide "><img src="img/g_rue_vertical_h3.jpg" loading="lazy" alt="Le rendu H3 Image Edit"><figcaption>Le rendu H3 Image Edit</figcaption></figure><details class="pr"><summary>Prompt</summary><button class="cp" type="button">Copier</button><pre>Faithfully render the reference image. Keep exactly the same layout, proportions and positions of every element. Very tall vertical unfolded strip for an immersive room: the middle part is the floor, the two ends are the two facing walls.
+
+Middle (floor): a close-up top-down view of a wide city street. The road is wider than the frame and fills it edge to edge, only grey asphalt, no sidewalks and no curbs visible. A large shallow rain puddle in the center reflecting the sky in light cyan, a round dark manhole cover at its lower left edge, a crumpled sheet of newspaper on the wet ground at its upper right, a small drain grate on the right.
+
+Top end (wall 1): the street rises into eye-level perspective with vanishing lines toward the horizon, a bus approaching in the distance at the center, a bus stop with a blue shelter and a &quot;Bus Stop&quot; sign on the right sidewalk, a red fire hydrant on the left sidewalk, building facades on both sides.
+
+Bottom end (wall 2, upside down): same street in eye-level perspective, a car on the road at the left, building facades on both sides.
+
+Smooth continuous transition between floor and walls, as if the street folds up onto the walls. Realistic rendering, overcast daylight, wet asphalt, soft reflections.</pre></details><p class="dl"><a href="json/rue_rendu.json" data-json="rue_rendu.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><p>Elle est ensuite déformée pour que les trottoirs raccordent aux pliures, suit le même dézoom que la grenouille, et un shader projette le sol sur les murs depuis l'œil du spectateur.</p><div class="grid"><figure class="m "><img src="img/g_rue_v5.jpg" loading="lazy" alt="Version finale, raccords aux pliures"><figcaption>Version finale, raccords aux pliures</figcaption></figure><figure class="m "><img src="img/g_derniere_frame.jpg" loading="lazy" alt="Dernière frame du dézoom, lab déplié"><figcaption>Dernière frame du dézoom, lab déplié</figcaption></figure></div></section><section class="step" id="g-sprites"><h3>7. Les sprites de la grenouille</h3><p>Premier réflexe : animer la grenouille directement sur tout le sol. Ça ne tient pas.</p><figure class="m wide"><video src="vid/v_lab_entier_anime.mp4" muted loop playsinline preload="metadata"></video><figcaption>La bande entière animée d'un coup : la grenouille n'est plus qu'une tache</figcaption></figure><p class="dl"><a href="json/lab_entier_anime.json" data-json="lab_entier_anime.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><p>Deuxième essai, avec plus de contrôle : une vidéo de trajectoire (un point rouge), la grenouille posée sur le point en frame 0, et la grenouille en référence.</p><div class="grid"><figure class="m"><video src="vid/v_point_rouge_trajet.mp4" muted loop playsinline preload="metadata"></video><figcaption>La trajectoire : un point rouge</figcaption></figure><figure class="m "><img src="img/g_point_rouge_frame0.jpg" loading="lazy" alt="Frame 0 : la grenouille sur le point"><figcaption>Frame 0 : la grenouille sur le point</figcaption></figure></div><figure class="m wide"><video src="vid/v_point_rouge_resultat.mp4" muted loop playsinline preload="metadata"></video><figcaption>Le résultat : le trajet n'est même pas vraiment suivi, et la grenouille est minuscule et floue</figcaption></figure><p class="dl"><a href="json/point_rouge.json" data-json="point_rouge.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><aside class="tip"><b>Pourquoi ?</b> À ces résolutions, on est très loin du format d'entraînement du modèle. Une grenouille qui ne fait que quelques pixels dans un grand plan est énormément compressée par le VAE et perd son identité. D'où le sprite : généré en gros plan, puis déplacé.</aside><aside class="tip"><b>Travailler par zones de focus</b> : plutôt que de générer tout le plan d'un coup, on croppe et on zoome sur la zone qui compte (la grenouille, la jonction, la cascade), on génère à une résolution proche de celle du modèle, puis on réassemble le tout dans Blender.</aside><p>La grenouille devient donc un <b>sprite</b> : un clip par action (repos, marche, saut), seule sur fond blanc. Elle peut par exemple n'avancer que quand quelqu'un s'approche, déclenchée dans TouchDesigner ou Smode.</p><div class="grid"><figure class="m"><video src="vid/v_sprite_00009_echec.mp4" muted loop playsinline preload="metadata"></video><figcaption>La caméra bascule : on s'en sert pour les vues de dos</figcaption></figure><figure class="m"><video src="vid/v_sprite_marche_00019.mp4" muted loop playsinline preload="metadata"></video><figcaption>Recyclé pour la marche</figcaption></figure><figure class="m"><video src="vid/v_sprite_saut_00020.mp4" muted loop playsinline preload="metadata"></video><figcaption>Le saut</figcaption></figure></div><p class="dl"><a href="json/sprite_echec.json" data-json="sprite_echec.json" target="_blank" rel="noopener">⬇ Workflow de la vue qui bascule (.json)</a><span class="dlmsg"></span></p><details class="pr"><summary>Prompt du saut</summary><button class="cp" type="button">Copier</button><pre>Top-down drone tracking shot: the camera flies directly above the frog and follows it, always looking straight down at 90 degrees, never tilting. The frog stays perfectly centered in the frame. The background is a plain seamless pure white surface with no texture, so the tracking movement is invisible.
+The green tree frog, seen from directly above, jumps forward. It crouches, then jumps: its body stretches long, hind legs extend straight backward, front legs reach forward, toes spread, and it grows slightly bigger in the frame at the peak of the jump because it rises toward the camera. Then it comes down, shrinks back to its normal size as it lands, and folds its legs under its body into the exact resting pose of the first frame.
+The whole jump is seen strictly from above, like a drone filming a frog jumping on a white floor: the belly and the underside of the feet are never visible, no shadow, no horizon. Same angle, same orientation from first to last frame, seamless loop.</pre></details><figure class="m wide wf"><a href="wf2/wf_sprite.jpg" target="_blank"><img src="wf2/wf_sprite.jpg" loading="lazy" alt="Workflow sprite : un seul guide, la grenouille de référence en frame 0"></a><figcaption>Workflow sprite : un seul guide, la grenouille de référence en frame 0 (clic pour agrandir)</figcaption></figure><p class="dl"><a href="json/sprite_saut.json" data-json="sprite_saut.json" target="_blank" rel="noopener">⬇ Workflow (.json)</a><span class="dlmsg"></span></p><p><b>On n'utilise que certaines frames</b> d'une vidéo générée : fond retiré, chaque image recalée sur le corps, pas parasites coupés. C'est Blender qui la déplace, en suivant chaque poussée de patte.</p><div class="grid"><figure class="m"><video src="vid/v_saut_nettoye.mp4" muted loop playsinline preload="metadata"></video><figcaption>Saut nettoyé</figcaption></figure><figure class="m "><img src="img/g_saut_frames.jpg" loading="lazy" alt="Le saut image par image"><figcaption>Le saut image par image</figcaption></figure><figure class="m "><img src="img/g_ondes.jpg" loading="lazy" alt="Les ondes, une par appui"><figcaption>Les ondes, une par appui</figcaption></figure></div><aside class="tip">Pour plusieurs angles d'un même sujet, on garde une banque de vues cohérentes (de dessus, de dos, de profil) et on donne en référence la plus proche de l'angle voulu. Keyframes et guides visuels restent les meilleurs outils de contrôle.</aside></section><section class="step" id="g-bus"><h3>8. Un événement : la grenouille géante et le bus</h3><p>Elle saute hors du sol et réapparaît géante sur le mur. Rue vide en frame 0, grenouille de dos en frame -1, puis le saut sur le bus.</p><div class="grid"><figure class="m "><img src="img/g_mur_vide.jpg" loading="lazy" alt="Frame 0 : la rue vide"><figcaption>Frame 0 : la rue vide</figcaption></figure><figure class="m "><img src="img/g_mur_dos.jpg" loading="lazy" alt="Frame -1 : la grenouille de dos"><figcaption>Frame -1 : la grenouille de dos</figcaption></figure></div><div class="grid"><figure class="m"><video src="vid/v_mur_arrivee_00023.mp4" muted loop playsinline preload="metadata"></video><figcaption>Arrivée</figcaption></figure><figure class="m"><video src="vid/v_mur_bus_00014.mp4" muted loop playsinline preload="metadata"></video><figcaption>Le saut sur le bus</figcaption></figure></div><details class="pr"><summary>Prompt de l'arrivée</summary><button class="cp" type="button">Copier</button><pre>Fixed tripod shot, completely static camera, the frame never moves: no pan, no tilt, no zoom, no shake. The street, the buildings, the bus stop, the fire hydrant and the bus stay at exactly the same position for the whole clip.
+A rainy empty city street, light drizzle, wet asphalt reflecting the grey sky, thin mist between the buildings.
+A giant green tree frog enters the frame by jumping in from above and behind the camera: first its shadow sweeps across the wet asphalt, then the frog flies into the frame in a high arc, seen from behind, legs stretched out, and lands heavily in the middle of the street close to the camera. Water splashes up from the asphalt around it on impact, the bus stop shakes slightly.
+After landing the frog settles into its sitting pose seen from behind, legs folded, breathing slowly, and stays still facing the bus. It ends exactly in the pose and position of the last frame.
+Semi-realistic, heavy and powerful amphibian motion, realistic weight and impact. Static locked-off camera, identical framing from first to last frame.</pre></details><p class="dl"><a href="json/mur_arrivee.json" data-json="mur_arrivee.json" target="_blank" rel="noopener">⬇ Workflow de l'arrivée (.json)</a><span class="dlmsg"></span></p><details class="pr"><summary>Prompt du bus</summary><button class="cp" type="button">Copier</button><pre>Fixed tripod shot, completely static camera, the frame never moves: no pan, no tilt, no zoom, no shake, no camera follow. The street, the buildings, the bus stop and the fire hydrant stay at exactly the same position for the whole clip.
+A giant green tree frog, as big as a truck, sits seen from behind in the middle of a rainy empty city street, breathing slowly, facing a white city bus parked further down the street.
+The frog crouches, its hind legs tense, then leaps forward in a high arc down the street and lands heavily on top of the bus. The bus roof caves in under its weight, the windows shatter and spray glass, the chassis folds and crumples, the tires burst, water and debris splash across the wet asphalt, the bus stop shakes.
+The frog stays on the crushed bus for a moment, its throat pulsing, then leaps again high and to the right and exits the frame. The wrecked bus remains in the street, smoking slightly, rain keeps falling.
+Semi-realistic, heavy and powerful amphibian motion, realistic weight and impact, overcast rainy light. Static locked-off camera, identical framing from first to last frame.</pre></details><p class="dl"><a href="json/mur_bus.json" data-json="mur_bus.json" target="_blank" rel="noopener">⬇ Workflow du bus (.json)</a><span class="dlmsg"></span></p><aside class="tip">Dans les deux projets, on crée des événements de la même façon : la cascade qui s'ouvre, la grenouille qui écrase le bus. Un guide sur l'état de départ, le prompt décrit ce qui arrive.</aside></section><section class="step" id="g-final"><h3>9. Le lab grenouille</h3><figure class="m wide"><video src="vid/v_rec_grenouille.mp4" muted loop playsinline preload="metadata"></video><figcaption>Dans Blender : de la cellule à la rue</figcaption></figure><div id="final-g"><figure class="m wide"><video src="vid/v_lab_grenouille_deplie.mp4" muted loop playsinline preload="metadata"></video><figcaption>Lab grenouille déplié, version finale avec les sprites et le mur</figcaption></figure></div></section><section class="step" id="g-main"><h3>IA ou à la main ?</h3><ul><li><b>À la main</b> : le dessin de la grenouille et de la ruelle, effacer toutes les cellules sauf une, cropper le dos, déformer la rue aux pliures, retimer le dézoom, choisir les frames utiles, déplacer le sprite patte par patte, poser les ondes.</li><li><b>À l'IA</b> : les textures (cellules, peau), le rendu de la grenouille et de la rue, les transitions du dézoom, chaque action de la grenouille en gros plan, l'événement du bus.</li></ul><p>Le point rouge le montre bien : l'IA sait suivre un trajet, mais pas garder une petite grenouille nette sur 18 mètres de sol. Le trajet, on le fait à la main ; l'IA fournit la grenouille.</p></section></div>
+</section>
+
+<section class="band base" id="fichiers"><div class="wrap">
+<h2>Où sont les fichiers</h2>
+<p style="margin-top:14px">Les workflows sont embarqués dans les images et vidéos sorties de ComfyUI : glisser un PNG ou un MP4 de sortie dans ComfyUI recharge le workflow complet, prompt compris. Les éléments Blender (séquences de sprites, ondes, vidéos retimées, rendus dépliés) sont dans le dossier <code>alphagen</code> de l'export, et la scène dans <code>motion_lab_draft.blend</code>.</p>
+<p>Modèles utilisés : <code>minimax_h3_image_pruned_int8_convrot</code> (H3 Image), <code>minimax_h3_ref2va_pruned_int8_convrot</code> (Ref2V), encodeur <code>qwen3vl_32b_minimax_h3</code>, LoRA turbo 4 steps en option, <code>relayvsr_x4_int8_convrot</code> pour l'upscale. Licence MiniMax H3 Community : à vérifier avant tout usage commercial.</p>
+</div></section>
+<footer><div class="wrap">Tuto ComfyUI motion lab, rédigé à partir des workflows embarqués dans les sorties ComfyUI et de la scène Blender, novembre 2026.</div></footer>
+<script>
+{
+const vids=[...document.querySelectorAll('video')];
+const io=new IntersectionObserver(es=>{for(const e of es){const v=e.target;if(e.isIntersecting){v.play().catch(()=>{})}else{v.pause()}}},{threshold:.25});
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+for(const v of vids){if(reduce){v.controls=true}else{io.observe(v);v.addEventListener('click',()=>{v.controls=true})}}
+for(const c of document.querySelectorAll('.stack td')){const i=c.cellIndex;c.dataset.l=c.closest('table').rows[0].cells[i].textContent}
+for(const a of document.querySelectorAll('a[data-json]')){a.addEventListener('click',async e=>{
+  let dl=null; try{dl=window.claude&&await window.claude.use('downloads')}catch(_){}
+  if(!dl) return;
+  e.preventDefault(); const m=a.nextElementSibling;
+  try{const b=await (await fetch(a.getAttribute('href'))).blob(); await dl.save({filename:a.dataset.json,data:b}); m.textContent=''}
+  catch(err){ if(err&&err.code==='declined'){m.textContent=''} else if(err&&err.code==='rate_limited'){m.textContent=' Réessaie dans un instant.'} else {window.open(a.href,'_blank','noopener')} }
+})}
+for(const b of document.querySelectorAll('.cp')){b.addEventListener('click',async()=>{const t=b.parentElement.querySelector('pre').textContent;try{await navigator.clipboard.writeText(t);b.textContent='Copié'}catch(e){b.textContent='Sélectionne le texte'}setTimeout(()=>b.textContent='Copier',1600)})}
+}
+</script>
+</body>
+</html>
